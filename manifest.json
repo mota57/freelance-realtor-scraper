@@ -1,0 +1,22 @@
+{
+"name": "Realtor Extension",
+  "manifest_version": 3,
+  "version": "1.0",
+  "host_permissions": [
+    "https://www.realtor.com/realestateandhomes-search/*"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.realtor.com/realestateandhomes-search/*"
+      ],
+      "run_at": "document_end",
+      "js": [
+        "USCities.js",
+        "content-script.js"]
+    }
+  ]
+}
