@@ -1,15 +1,15 @@
+
 (async function initPopupWindow() {
 
 
   let loading = false;
-  let states = [...new Set(USCities.map(r => r.state))].sort();
 
   let options = '';
-  for (let stateIndex = 0; stateIndex < states.length; stateIndex++) {
-    options += `<option value="${states[stateIndex]}">${states[stateIndex]}</option>`
+  for (let stateIndex = 0; stateIndex < USStateCounties.length; stateIndex++) {
+    options += `<option value="${USStateCounties[stateIndex].ISO2}">${USStateCounties[stateIndex].StateName}</option>`
   }
 
-  let dropdownStates = createElementFromHTML(` <select data-id="state" class="MJgts cLCTBg filter-btn" style="margin-left:10px">` + options +` </select>`);
+  let dropdownStates = createElementFromHTML(` <select data-id="state" class="MJgts cLCTBg filter-btn" style="margin-left:10px">` + options + ` </select>`);
 
   let button = createElementFromHTML(`
   <div>
@@ -45,38 +45,43 @@
       if (loading) { return; }
 
       var rowList = [];
+      var timeout = 5500;
+      var limitBy = 4;
+      var isTest = false;
 
       toggleButtonDisabled();
 
       try {
         var urlParams = getUrlParameters();
-        var stateSelected = dropdownStates.value ? dropdownStates.value.trim() : null ;
+        var stateSelected = dropdownStates.value ? dropdownStates.value.trim() : null;
         if (stateSelected == null || stateSelected == "" || stateSelected == undefined) {
-          throw 'must select an state';
+          throw 'Must select at least an state';
         }
-        var zipCods = USCities.filter(x => x.state == stateSelected).map(x => x.zip_code);
 
-        let zipSplitted = splitBy(zipCods, 2);
+        let state = USStateCounties.find(x => x.ISO2 == stateSelected);
 
-        zipSplitted.reduce((promiseChain, zips, i) => {
+        let splitted = splitBy(isTest ? state.Counties.slice(0, 5) : state.Counties, limitBy);
+
+        splitted.reduce(function (promiseChain, countyNames, i) {
           return promiseChain.then(async () => {
             return await new Promise(resolve => {
               setTimeout(async function () {
-                let rList = await extractData(zips, urlParams);
-                console.log(rList);
-                rowList = rowList.concat(rList);
+                let rows = await extractData(countyNames, urlParams, state.StateName); //{countyRealtorCode:"", 70000:2,80000:3...}
+                console.log(rows);
+                rowList = rowList.concat(rows);
                 spanTotal.textContent = rowList.length;
                 resolve(1);
-              }, 10000);
+              }, timeout);
             });
           });
         }, Promise.resolve())
           .then(() => {
             if (rowList.length > 0) {
-              console.log(rowList);
-              window.sessionStorage.setItem('rowList', rowList);
-              window.localStorage.setItem('rowList2', rowList);
-              var blob = convertArrayOfObjectsToCSV(rowList);
+              let exportData = concatHUDUserData(rowList);
+              console.log(exportData);
+              // window.sessionStorage.setItem('rowList', rowList);
+              // window.localStorage.setItem('rowList2', rowList);
+              let blob = convertArrayOfObjectsToCSV(exportData);
               saveAs(blob);
 
               toggleButtonDisabled();
@@ -89,6 +94,19 @@
       }
     });
   });
+
+  function concatHUDUserData(rowList) {
+    return rowList.map(row => {
+
+        let stateInfo = HUDUserData.find(hud => hud.StateName == row.stateName);
+        let rowCounty = stateInfo.Rows.find(s => s.countyRealtorCode == row.countyRealtorCode);
+
+        let data = {...row,...rowCounty}
+        debugger;
+        return data;
+
+    });
+  }
 
   function splitBy(records, x) {
     let count = 1;
@@ -143,33 +161,38 @@
   }
 
   /**for testing */
-  async function extractDataFake(zipcodes, urlParams) {
+  async function extractDataFake(counties, urlParams) {
 
     let { price1, price2, beds1, beds2 } = urlParams;
     console.log(beds2);
-    return await Promise.resolve(zipcodes)
+    return await Promise.resolve(counties)
   }
 
-  async function extractData(zipcodes, urlParams) {
+  /**
+   *
+   * @param {*} counties
+   * @param {*} urlParams
+   * @returns [dynamic(countyRealtorCode,price...)]
+   */
+  async function extractData(counties, urlParams, stateName) {
 
-    if (zipcodes == null || zipcodes.length == 0) { throw 'zipcode not a valid argument, must be an array with values'; }
+    if (counties == null || counties.length == 0) { throw 'zipcode not a valid argument, must be an array with values'; }
 
     let { price1, price2, beds1, beds2 } = urlParams;
 
     let requests = [];
 
-    for (let zipcode of zipcodes) {
+    for (let countyRealtorCode of counties) {
       let data = {};
-      data.zipcode = zipcode;
+      data.stateName = stateName;
+      data.countyRealtorCode = countyRealtorCode;
       data.urls = [];
-      data.houses = 0;
 
       for (let p = price1; p <= price2; p += 10_000) {
-        let topPrice = Number(p.toString().replaceAll('0', '9'));
-        data.urls.push({ price: p, url: `https://www.realtor.com/realestateandhomes-search/${zipcode}/beds-${beds1}-${beds2}/price-${p}-${topPrice}` });
+        data.urls.push({ price: p, url: `https://www.realtor.com/realestateandhomes-search/${countyRealtorCode}/beds-${beds1}-${beds2}/price-na-${p}` });
       }
 
-      let promise = await fetchUrlsFromData(data)
+      let promise = await fetchInfoFromUrls(data)
       requests.push(promise);
     }
 
@@ -256,28 +279,17 @@
     return keys;
   }
 
-  async function fetchInSequence(requests) {
-    let records = [];
-    return new Promise((resolve, reject) => {
-      requests.reduce((promiseChain, next) => {
-        return promiseChain.then(async () => {
-          let record = await next();
-          records.push(record);
-        });
-      }, Promise.resolve())
-        .then(() => resolve(records));
-    });
-
-  }
-
-  async function fetchUrlsFromData(data) {
-    // return new Promise(async (ok, bad) => {
+  /**
+   * 
+   * @param {county,urls} data
+   * @returns dynamic(county,prices)
+   *
+   */
+  async function fetchInfoFromUrls(data) {
     return async function fetchUrlsFromDataInner() {
-      let excelRow = {
-        zipcode: data.zipcode
-      };
+      const { urls, ...excelRow } = data;
 
-      var requests = data.urls.map(r => fetch(r.url));
+      var requests = urls.map(r => fetch(r.url));
       var responseList = await Promise.all(requests)
       var contentList = await Promise.all(responseList.map(x => x.text()))
       contentList.forEach((content, index) => {
@@ -288,8 +300,6 @@
       return excelRow;
 
     }
-    // return excelRow;
-    // });
   }
 
 
@@ -308,21 +318,21 @@
     }
   }
 
+  async function fetchInSequence(requests) {
+    let records = [];
+    return new Promise((resolve, reject) => {
+      requests.reduce((promiseChain, next) => {
+        return promiseChain.then(async () => {
+          let record = await next();
+          records.push(record);
+        });
+      }, Promise.resolve())
+        .then(() => resolve(records));
+    });
 
-  async function getTotalHomes(zipcode, beds1, beds2, price1, price2) {
-    try {
-      let stream = await fetch(`https://www.realtor.com/realestateandhomes-search/${zipcode}/beds-${beds1}-${beds2}/price-${price1}-${price2}`);
-      let content = await stream.text();
-      var startIndex = content.indexOf('<span data-testid="results-header-count"');
-      var subpart = content.substring(startIndex, startIndex + 1000);
-      var span = subpart.substring(subpart.indexOf(">") + 1, subpart.indexOf("</span>"));
-      console.log(span);
-      var totalHouses = span.replace(/\D/g, '');
-      return totalHouses;
-    } catch {
-      return -1;
-    }
   }
+
+
 
 
 

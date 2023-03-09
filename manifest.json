@@ -15,7 +15,8 @@
       ],
       "run_at": "document_end",
       "js": [
-        "USCities.js",
+        "/data/USStateCounties.js",
+        "/data/HUDUserData.js",
         "content-script.js"]
     }
   ]

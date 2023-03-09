@@ -4,6 +4,26 @@
     <!-- <script src="popup.js" type="module"></script> -->
   </head>
 <body>
-<div>demo</div>
+<div>Steps</div>
+<ul>
+  <li>Select an [[state]]</li>
+  <li>Select min and max [[bedrooms]].</li>
+  <li> Select min and max [[price]] </li>
+</ul>
+<div>
+  For example for the state {TN} with min beds = {3} and max beds = {3} it will request the following info for one of states' county:
+  <ul>
+    <li>https://www.realtor.com/realestateandhomes-search/Kingsport_TN/beds-3-3/price-0-70000</li>
+    <li>https://www.realtor.com/realestateandhomes-search/Kingsport_TN/beds-3-3/price-0-80000</li>
+    <li>https://www.realtor.com/realestateandhomes-search/Kingsport_TN/beds-3-3/price-0-90000</li>
+    <li>https://www.realtor.com/realestateandhomes-search/Kingsport_TN/beds-3-3/price-0-100000</li>
+    <li>https://www.realtor.com/realestateandhomes-search/Kingsport_TN/beds-3-3/price-0-110000</li>
+    <li>https://www.realtor.com/realestateandhomes-search/Kingsport_TN/beds-3-3/price-0-120000</li>
+    <li>...request for other counties of {TN} ...etc </li>
+
+  </ul>
+  <a href="https://www.realtor.com/realestateandhomes-search/Kingsport_TN/beds-3-3/price-70000-120000">Go to this link, to have a predifine set of parameters</a>
+
+</div>
 </body>
 </html>
