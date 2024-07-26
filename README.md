@@ -5,5 +5,8 @@
 * Must select
   * min price and max price.
   * min bed and max bed.
+  * Select State.
+
+Finnally wait for script to complete.
 
 ![image](https://user-images.githubusercontent.com/7569989/230344294-d8cf1005-0fed-4e43-9f41-bec4bb22d297.png)
